@@ -22,8 +22,8 @@ type LoginResponse = {
 };
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("dominik@vetcare.pl");
-  const [password, setPassword] = useState("haslo123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [registerMode, setRegisterMode] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const API_URL = "http://192.168.1.36:8000";
+export const API_URL =
+  "https://vetcare-api-74lk.onrender.com";
 
 export const TOKEN_KEY = "vetcare_token";
 export const PETS_CACHE_KEY = "vetcare_pets";
@@ -57,14 +58,18 @@ export async function apiRequest<T>(
       headers,
     });
   } catch {
-    throw new ApiError("Brak połączenia z serwerem");
+    throw new ApiError(
+      "Brak połączenia z serwerem",
+    );
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  const data = await response.json().catch(() => ({}));
+  const data = await response
+    .json()
+    .catch(() => ({}));
 
   if (!response.ok) {
     throw new ApiError(
