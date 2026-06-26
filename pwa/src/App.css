@@ -1,0 +1,281 @@
+.app-shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px max(20px, calc((100% - 1100px) / 2));
+  background: #ffffff;
+  border-bottom: 1px solid #dfe5ee;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #17324d;
+  font-size: 1.35rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.brand-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 14px;
+  background: #dbeafe;
+}
+
+.navigation {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #dfe5ee;
+}
+
+.navigation a {
+  padding: 10px 15px;
+  border-radius: 10px;
+  color: #526477;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.navigation a.active {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.content {
+  width: min(1100px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 34px 0 60px;
+}
+
+.auth-card,
+.form-card,
+.about-card {
+  width: min(520px, 100%);
+  margin: 45px auto;
+  padding: 32px;
+  border: 1px solid #dfe5ee;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgb(31 54 76 / 8%);
+}
+
+.auth-logo,
+.about-icon {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 18px;
+  place-items: center;
+  border-radius: 22px;
+  background: #dbeafe;
+  font-size: 2rem;
+}
+
+.auth-card h1,
+.about-card h1 {
+  text-align: center;
+}
+
+form {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: #243b53;
+  font-weight: 700;
+}
+
+input,
+select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 14px;
+  border: 1px solid #c8d3df;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #172b3f;
+  font: inherit;
+}
+
+input:focus,
+select:focus {
+  border-color: #2563eb;
+  outline: 3px solid #dbeafe;
+}
+
+button {
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary-button {
+  padding: 13px 18px;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.secondary-button {
+  padding: 10px 15px;
+  border-radius: 10px;
+  background: #e8eef5;
+  color: #243b53;
+}
+
+.danger-button {
+  padding: 10px 15px;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.logout-button,
+.text-button {
+  background: transparent;
+  color: #2563eb;
+}
+
+.text-button {
+  display: block;
+  margin: 20px auto 0;
+}
+
+.small-button {
+  width: auto;
+}
+
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 25px;
+}
+
+.page-heading h1,
+.form-card h1,
+.about-card h1 {
+  margin: 0;
+  color: #17324d;
+}
+
+.muted {
+  color: #697b8c;
+}
+
+.message,
+.offline-banner {
+  padding: 12px 15px;
+  border-radius: 12px;
+  background: #fff7d6;
+  color: #765a00;
+}
+
+.pet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 20px;
+}
+
+.pet-card {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid #dfe5ee;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.pet-card h2 {
+  margin: 0 0 12px;
+  color: #17324d;
+}
+
+.pet-card p {
+  margin: 7px 0;
+  color: #526477;
+}
+
+.pet-avatar {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 20px;
+  background: #e0f2fe;
+  font-size: 2rem;
+}
+
+.card-actions,
+.form-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.form-actions {
+  justify-content: flex-end;
+}
+
+.feature-list {
+  display: grid;
+  gap: 15px;
+  margin-top: 26px;
+}
+
+.feature-list div {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #f1f5f9;
+}
+
+.feature-list span {
+  color: #697b8c;
+}
+
+@media (max-width: 650px) {
+  .navigation {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .content {
+    width: min(100% - 24px, 1100px);
+    padding-top: 22px;
+  }
+
+  .auth-card,
+  .form-card,
+  .about-card {
+    box-sizing: border-box;
+    margin: 10px auto;
+    padding: 24px;
+  }
+
+  .page-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .small-button {
+    width: 100%;
+  }
+}

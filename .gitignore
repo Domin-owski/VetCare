@@ -1,0 +1,21 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+*.pyc
+*.db
+
+# Node
+pwa/node_modules/
+pwa/dist/
+mobile/node_modules/
+mobile/.expo/
+
+# Pliki środowiskowe
+.env
+.env.*
+!.env.example
+
+# Edytor i system
+.vscode/
+.DS_Store
+Thumbs.db
