@@ -5,6 +5,7 @@ export const API_URL = "http://192.168.1.36:8000";
 export const TOKEN_KEY = "vetcare_token";
 export const PETS_CACHE_KEY = "vetcare_pets";
 export const PET_PHOTOS_KEY = "vetcare_pet_photos";
+export const PENDING_PETS_KEY = "vetcare_pending_pets";
 
 export type Pet = {
   id: number;
@@ -23,6 +24,17 @@ export type PetPayload = {
   birth_date: string | null;
 };
 
+export class ApiError extends Error {
+  status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -37,10 +49,16 @@ export async function apiRequest<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new ApiError("Brak połączenia z serwerem");
+  }
 
   if (response.status === 204) {
     return undefined as T;
@@ -49,7 +67,10 @@ export async function apiRequest<T>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.detail || "Błąd połączenia z serwerem");
+    throw new ApiError(
+      data.detail || "Błąd odpowiedzi serwera",
+      response.status,
+    );
   }
 
   return data as T;

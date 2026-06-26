@@ -1,11 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import DateTimePicker, {
-  DateTimePickerEvent,
+  type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
+
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useState } from "react";
+
 import {
   ActivityIndicator,
   Alert,
@@ -22,10 +25,18 @@ import {
 
 import {
   apiRequest,
-  Pet,
+  ApiError,
   PET_PHOTOS_KEY,
+} from "../../lib/api";
+
+import type {
+  Pet,
   PetPayload,
 } from "../../lib/api";
+
+import {
+  addPetToQueue,
+} from "../../lib/offlineQueue";
 
 function formatDateForApi(date: Date): string {
   const year = date.getFullYear();
@@ -48,35 +59,91 @@ export default function AddPetScreen() {
   const [species, setSpecies] = useState("Pies");
   const [breed, setBreed] = useState("");
 
-  const [birthDate, setBirthDate] = useState<string | null>(null);
+  const [birthDate, setBirthDate] =
+    useState<string | null>(null);
+
   const [selectedDate, setSelectedDate] = useState(
     new Date(2020, 0, 1),
   );
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] =
+    useState(false);
+
+  const [photoUri, setPhotoUri] =
+    useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
 
+  function resetForm() {
+    setName("");
+    setSpecies("Pies");
+    setBreed("");
+    setBirthDate(null);
+    setSelectedDate(new Date(2020, 0, 1));
+    setPhotoUri(null);
+    setShowDatePicker(false);
+  }
+
   async function takePhoto() {
-    const permission =
-      await ImagePicker.requestCameraPermissionsAsync();
+    try {
+      const permission =
+        await ImagePicker.requestCameraPermissionsAsync();
 
-    if (!permission.granted) {
+      if (!permission.granted) {
+        Alert.alert(
+          "Brak uprawnień",
+          "Zezwól aplikacji VetCare na korzystanie z aparatu.",
+        );
+
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch {
       Alert.alert(
-        "Brak uprawnień",
-        "Zezwól aplikacji VetCare na korzystanie z aparatu.",
+        "Błąd aparatu",
+        "Nie udało się uruchomić aparatu.",
       );
-      return;
     }
+  }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      quality: 0.7,
-    });
+  async function pickPhotoFromLibrary() {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!result.canceled && result.assets.length > 0) {
-      setPhotoUri(result.assets[0].uri);
+      if (!permission.granted) {
+        Alert.alert(
+          "Brak uprawnień",
+          "Zezwól aplikacji VetCare na dostęp do biblioteki zdjęć.",
+        );
+
+        return;
+      }
+
+      const result =
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          quality: 0.7,
+        });
+
+      if (!result.canceled && result.assets.length > 0) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert(
+        "Błąd biblioteki",
+        "Nie udało się otworzyć biblioteki zdjęć.",
+      );
     }
   }
 
@@ -102,12 +169,39 @@ export default function AddPetScreen() {
     setShowDatePicker(false);
   }
 
+  async function saveOnlinePhoto(
+    petId: number,
+    uri: string,
+  ) {
+    const rawPhotos = await AsyncStorage.getItem(
+      PET_PHOTOS_KEY,
+    );
+
+    let photos: Record<string, string> = {};
+
+    if (rawPhotos) {
+      try {
+        photos = JSON.parse(rawPhotos);
+      } catch {
+        photos = {};
+      }
+    }
+
+    photos[String(petId)] = uri;
+
+    await AsyncStorage.setItem(
+      PET_PHOTOS_KEY,
+      JSON.stringify(photos),
+    );
+  }
+
   async function savePet() {
     if (!name.trim()) {
       Alert.alert(
         "Brak danych",
         "Wpisz imię zwierzęcia.",
       );
+
       return;
     }
 
@@ -127,37 +221,50 @@ export default function AddPetScreen() {
       });
 
       if (photoUri) {
-        const rawPhotos =
-          await AsyncStorage.getItem(PET_PHOTOS_KEY);
-
-        const photos: Record<string, string> = rawPhotos
-          ? JSON.parse(rawPhotos)
-          : {};
-
-        photos[String(createdPet.id)] = photoUri;
-
-        await AsyncStorage.setItem(
-          PET_PHOTOS_KEY,
-          JSON.stringify(photos),
-        );
+        await saveOnlinePhoto(createdPet.id, photoUri);
       }
 
-      setName("");
-      setSpecies("Pies");
-      setBreed("");
-      setBirthDate(null);
-      setSelectedDate(new Date(2020, 0, 1));
-      setPhotoUri(null);
-      setShowDatePicker(false);
+      resetForm();
 
       router.replace("/(tabs)/pets");
     } catch (error) {
-      Alert.alert(
-        "Nie udało się zapisać",
-        error instanceof Error
-          ? error.message
-          : "Wystąpił nieznany błąd",
-      );
+      /*
+       * Serwer odpowiedział, ale odrzucił dane.
+       * Takiego rekordu nie zapisujemy do kolejki offline.
+       */
+      if (
+        error instanceof ApiError &&
+        error.status !== undefined
+      ) {
+        Alert.alert(
+          "Nie udało się zapisać",
+          error.message,
+        );
+
+        return;
+      }
+
+      /*
+       * Brak połączenia z serwerem.
+       * Zwierzę zostaje zapisane lokalnie.
+       */
+      try {
+        await addPetToQueue(payload, photoUri);
+
+        resetForm();
+
+        Alert.alert(
+          "Zapisano lokalnie",
+          "Zwierzę oczekuje na synchronizację. Zostanie wysłane po odzyskaniu połączenia z serwerem.",
+        );
+
+        router.replace("/(tabs)/pets");
+      } catch {
+        Alert.alert(
+          "Błąd zapisu lokalnego",
+          "Nie udało się zapisać danych w pamięci telefonu.",
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -166,21 +273,29 @@ export default function AddPetScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={
+        Platform.OS === "ios"
+          ? "padding"
+          : undefined
+      }
     >
       <ScrollView
         style={styles.screen}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Nowe zwierzę</Text>
+        <Text style={styles.title}>
+          Nowe zwierzę
+        </Text>
 
         <Text style={styles.subtitle}>
-          Dodaj podstawowe informacje i wykonaj zdjęcie.
+          Dodaj podstawowe informacje oraz zdjęcie pupila.
         </Text>
 
         <View style={styles.form}>
-          <Text style={styles.label}>Imię</Text>
+          <Text style={styles.label}>
+            Imię
+          </Text>
 
           <TextInput
             style={styles.input}
@@ -190,17 +305,29 @@ export default function AddPetScreen() {
             placeholderTextColor="#526477"
           />
 
-          <Text style={styles.label}>Gatunek</Text>
+          <Text style={styles.label}>
+            Gatunek
+          </Text>
 
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={species}
-              onValueChange={(value) => setSpecies(value)}
+              onValueChange={(value) =>
+                setSpecies(value)
+              }
               style={styles.picker}
               itemStyle={styles.pickerItem}
             >
-              <Picker.Item label="Pies" value="Pies" />
-              <Picker.Item label="Kot" value="Kot" />
+              <Picker.Item
+                label="Pies"
+                value="Pies"
+              />
+
+              <Picker.Item
+                label="Kot"
+                value="Kot"
+              />
+
               <Picker.Item
                 label="Inne zwierzę"
                 value="Inny"
@@ -208,21 +335,27 @@ export default function AddPetScreen() {
             </Picker>
           </View>
 
-          <Text style={styles.label}>Rasa</Text>
+          <Text style={styles.label}>
+            Rasa
+          </Text>
 
           <TextInput
             style={styles.input}
             value={breed}
             onChangeText={setBreed}
-            placeholder="np. Yorkshire Terrier"
+            placeholder="np. York"
             placeholderTextColor="#526477"
           />
 
-          <Text style={styles.label}>Data urodzenia</Text>
+          <Text style={styles.label}>
+            Data urodzenia
+          </Text>
 
           <Pressable
             style={styles.dateButton}
-            onPress={() => setShowDatePicker(true)}
+            onPress={() =>
+              setShowDatePicker(true)
+            }
           >
             <Text
               style={
@@ -236,7 +369,9 @@ export default function AddPetScreen() {
                 : "Wybierz datę z kalendarza"}
             </Text>
 
-            <Text style={styles.calendarIcon}>📅</Text>
+            <Text style={styles.calendarIcon}>
+              📅
+            </Text>
           </Pressable>
 
           {showDatePicker && (
@@ -268,7 +403,9 @@ export default function AddPetScreen() {
               {Platform.OS === "ios" && (
                 <Pressable
                   style={styles.closeCalendarButton}
-                  onPress={() => setShowDatePicker(false)}
+                  onPress={() =>
+                    setShowDatePicker(false)
+                  }
                 >
                   <Text style={styles.closeCalendarText}>
                     Zatwierdź datę
@@ -289,12 +426,37 @@ export default function AddPetScreen() {
             </Pressable>
           )}
 
+          <Text style={styles.label}>
+            Zdjęcie pupila
+          </Text>
+
           {photoUri ? (
-            <Image
-              source={{ uri: photoUri }}
-              style={styles.preview}
-            />
-          ) : null}
+            <View style={styles.photoSection}>
+              <Image
+                source={{ uri: photoUri }}
+                style={styles.preview}
+              />
+
+              <Pressable
+                style={styles.removePhotoButton}
+                onPress={() => setPhotoUri(null)}
+              >
+                <Text style={styles.removePhotoText}>
+                  Usuń wybrane zdjęcie
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.noPhotoBox}>
+              <Text style={styles.noPhotoIcon}>
+                🐾
+              </Text>
+
+              <Text style={styles.noPhotoText}>
+                Nie wybrano jeszcze zdjęcia
+              </Text>
+            </View>
+          )}
 
           <Pressable
             style={styles.cameraButton}
@@ -302,6 +464,15 @@ export default function AddPetScreen() {
           >
             <Text style={styles.cameraButtonText}>
               📷 Zrób zdjęcie aparatem
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.libraryButton}
+            onPress={pickPhotoFromLibrary}
+          >
+            <Text style={styles.libraryButtonText}>
+              🖼️ Wybierz zdjęcie z biblioteki
             </Text>
           </Pressable>
 
@@ -387,7 +558,10 @@ const styles = StyleSheet.create({
   },
 
   picker: {
-    height: Platform.OS === "ios" ? 145 : 52,
+    height:
+      Platform.OS === "ios"
+        ? 145
+        : 52,
     color: "#102a43",
   },
 
@@ -482,24 +656,77 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  photoSection: {
+    gap: 9,
+  },
+
   preview: {
     width: "100%",
     height: 220,
-    marginTop: 8,
+    borderWidth: 2,
+    borderColor: "#2563eb",
     borderRadius: 16,
     resizeMode: "cover",
   },
 
+  removePhotoButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 4,
+    paddingVertical: 5,
+  },
+
+  removePhotoText: {
+    color: "#b42318",
+    fontWeight: "800",
+  },
+
+  noPhotoBox: {
+    minHeight: 130,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#b9c8d8",
+    borderStyle: "dashed",
+    borderRadius: 16,
+    backgroundColor: "#f4f7fb",
+  },
+
+  noPhotoIcon: {
+    fontSize: 35,
+  },
+
+  noPhotoText: {
+    marginTop: 8,
+    color: "#526477",
+    fontWeight: "700",
+  },
+
   cameraButton: {
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 4,
     padding: 14,
+    borderWidth: 2,
+    borderColor: "#0284c7",
     borderRadius: 12,
     backgroundColor: "#cfe8ff",
   },
 
   cameraButtonText: {
     color: "#064f8c",
+    fontWeight: "800",
+  },
+
+  libraryButton: {
+    alignItems: "center",
+    padding: 14,
+    borderWidth: 2,
+    borderColor: "#7c3aed",
+    borderRadius: 12,
+    backgroundColor: "#ede9fe",
+  },
+
+  libraryButtonText: {
+    color: "#5b21b6",
     fontWeight: "800",
   },
 
