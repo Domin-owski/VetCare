@@ -115,8 +115,8 @@ function LoginPage() {
   const navigate = useNavigate();
 
   const [mode, setMode] = useState("login");
-  const [email, setEmail] = useState("test@vetcare.pl");
-  const [password, setPassword] = useState("test123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
