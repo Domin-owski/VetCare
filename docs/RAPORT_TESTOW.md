@@ -3,7 +3,7 @@
 ## 1. Informacje o projekcie
 
 **Nazwa projektu:** VetCare
-**Autor:** Dominik Janowski
+**Autor:** Dominik Janowski , Jakub Adamczyk
 **Data wykonania testów:** 27 czerwca 2026 r.
 
 VetCare jest aplikacją służącą do zarządzania profilami zwierząt. Projekt składa się z trzech głównych części:
